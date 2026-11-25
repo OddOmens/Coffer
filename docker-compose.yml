@@ -119,7 +119,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    image: cloudflare/cloudflared:2026.10.4
+    image: cloudflare/cloudflared:2026.11.1
     profiles: [tunnel]
     restart: unless-stopped
     depends_on: [coffer]
