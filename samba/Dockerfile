@@ -1,4 +1,4 @@
-FROM alpine:3.22
+FROM alpine:3.24
 RUN apk add --no-cache samba-server samba-common-tools tini
 COPY smb.conf.template share.conf.template /etc/coffer/
 COPY entrypoint.sh /entrypoint.sh
