@@ -42,6 +42,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
           toast: "cn-toast",
         },
       }}
+      // Clear of the home indicator on iPad and of the notch on a phone held sideways.
+      offset={{ bottom: "calc(env(safe-area-inset-bottom) + 24px)", left: "calc(env(safe-area-inset-left) + 24px)", right: "calc(env(safe-area-inset-right) + 24px)", top: "calc(env(safe-area-inset-top) + 24px)" }}
       {...props}
       {...(isMobile && { position: "top-center", mobileOffset: { top: "calc(env(safe-area-inset-top) + 0.5rem)", left: "0.75rem", right: "0.75rem" } })}
     />

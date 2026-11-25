@@ -415,7 +415,7 @@ export default function FilesPage() {
   const newMenu = canWrite && (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button>
+        <Button aria-label="New">
           <PlusIcon /> <span className="hidden sm:inline">New</span>
         </Button>
       </DropdownMenuTrigger>
@@ -502,6 +502,11 @@ export default function FilesPage() {
                   id="folder-search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
+                  // The phone keyboard: a Search key, and no capitals or corrections in file names.
+                  enterKeyHint="search"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   placeholder={path === "/" ? `Search ${place?.name ?? "files"}` : `Search in ${baseName(path)}`}
                   className="pl-8"
                 />
@@ -527,7 +532,7 @@ export default function FilesPage() {
 
           {sel.length > 0 && (
             // Phones: a floating toolbar above the tab bar, like Files on iOS.
-            <div className="sticky top-2 z-20 mb-3 flex flex-wrap items-center gap-1 rounded-xl border bg-popover/95 px-2 py-1.5 shadow-sm backdrop-blur max-md:fixed max-md:inset-x-3 max-md:top-auto max-md:bottom-[calc(var(--tabbar-h)+env(safe-area-inset-bottom)+0.5rem)] max-md:z-40 max-md:mb-0 max-md:flex-nowrap max-md:justify-between max-md:overflow-x-auto max-md:gap-0 max-md:rounded-2xl max-md:py-1 max-md:shadow-lg max-md:[&_[data-slot=button]]:h-10 max-md:[&_[data-slot=button]]:min-w-9">
+            <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-20 mb-3 flex flex-wrap items-center gap-1 rounded-xl border bg-popover/95 px-2 py-1.5 shadow-sm backdrop-blur max-md:fixed max-md:inset-x-3 max-md:top-auto max-md:bottom-[calc(var(--tabbar-h)+env(safe-area-inset-bottom)+0.5rem)] max-md:z-40 max-md:mb-0 max-md:flex-nowrap max-md:justify-between max-md:overflow-x-auto max-md:gap-0 max-md:rounded-2xl max-md:py-1 max-md:shadow-lg max-md:[&_[data-slot=button]]:h-10 max-md:[&_[data-slot=button]]:min-w-9">
               <Button variant="ghost" size="icon-sm" onClick={selection.clear} aria-label="Clear selection">
                 <XIcon />
               </Button>

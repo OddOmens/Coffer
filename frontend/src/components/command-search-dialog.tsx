@@ -67,7 +67,7 @@ export function CommandSearchDialog() {
         <DialogTitle className="sr-only">Search</DialogTitle>
         <DialogDescription className="sr-only">Search files and folders across your drives</DialogDescription>
         <Command shouldFilter={false} className="[&_[cmdk-input-wrapper]]:h-14">
-          <CommandInput value={q} onValueChange={setQ} placeholder="Search files and folders…" className="h-12 text-base" />
+          <CommandInput value={q} onValueChange={setQ} placeholder="Search files and folders…" enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="h-12 text-base" />
           <div className="flex gap-1 overflow-x-auto border-b px-3 py-2">
             {kindFilters.map((k) => (
               <button
@@ -83,7 +83,8 @@ export function CommandSearchDialog() {
               </button>
             ))}
           </div>
-          <CommandList className="max-h-[min(60vh,28rem)]">
+          {/* Never taller than what's left above the on-screen keyboard. */}
+          <CommandList className="max-h-[min(60vh,28rem,calc(100dvh-var(--kb)-env(safe-area-inset-top)-8.5rem))] sm:max-h-[min(60vh,28rem,calc(88dvh-var(--kb)-8rem))]">
             {hits && !busy && <CommandEmpty>No files match “{q}”.</CommandEmpty>}
             {!q && kind === "all" && (
               <CommandGroup heading="Go to">

@@ -217,7 +217,8 @@ export default function EditorPage() {
   }
 
   return (
-    <div className="flex h-svh flex-col pb-[env(safe-area-inset-bottom)] md:h-[calc(100svh-1rem)] md:pb-0">
+    // Ends at the on-screen keyboard (--kb) rather than behind it: iOS doesn't resize the page for it.
+    <div className="flex h-svh flex-col pb-[max(env(safe-area-inset-bottom),var(--kb))] md:h-[calc(100svh-1rem-env(safe-area-inset-top)-max(env(safe-area-inset-bottom),var(--kb)))] md:pb-0">
       <header className="box-content flex h-14 shrink-0 items-center gap-2 border-b px-3 pt-[env(safe-area-inset-top)] md:pt-0">
         <Button variant="ghost" size="icon-sm" onClick={back} aria-label="Back to folder">
           <ArrowLeftIcon />
@@ -225,7 +226,7 @@ export default function EditorPage() {
         <FileTile entry={{ name, isDir: false }} size="sm" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">{name}</div>
-          <div className="text-xs text-muted-foreground">
+          <div className="truncate text-xs text-muted-foreground">
             {!doc ? "Loading…" : !doc.writable ? "Read only" : saving ? "Saving…" : dirty ? "Unsaved changes" : `Saved · ${formatBytes(doc.size)} · ${relativeTime(doc.modTime)}`}
           </div>
         </div>

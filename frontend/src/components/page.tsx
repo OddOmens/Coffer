@@ -57,14 +57,15 @@ export function Page({
             compact && "border-border",
           )}
         >
-          <div className="relative flex h-11 items-center gap-1 px-1.5">
+          {/* Sized for a thumb: a 48px bar, a 44px bell, and text at the size iOS uses in its own bars. */}
+          <div className="relative flex h-12 items-center gap-1 px-1.5">
             {back && <BackButton parent={back} />}
             <div className="flex-1" />
-            <NotificationsBell />
+            <NotificationsBell className="size-11 [&>span]:top-2.5 [&>span]:right-2.5 [&>svg]:size-[1.375rem]" />
             <div
               aria-hidden={!compact}
               className={cn(
-                "pointer-events-none absolute inset-x-24 top-1/2 -translate-y-1/2 truncate text-center text-[0.9375rem] font-semibold transition-opacity duration-200",
+                "pointer-events-none absolute inset-x-24 top-1/2 -translate-y-1/2 truncate text-center text-[1.0625rem] font-semibold transition-opacity duration-200",
                 compact ? "opacity-100" : "opacity-0",
               )}
             >
@@ -90,10 +91,10 @@ export function Page({
 
 /** iOS-style back button to the page above this one. */
 function BackButton({ parent }: { parent: PageParent }) {
-  const cls = "flex min-w-0 max-w-[40vw] items-center rounded-lg py-2 pr-2 text-[0.9375rem] text-brand active:opacity-50"
+  const cls = "flex min-w-0 max-w-[40vw] items-center rounded-lg py-2 pr-2 text-[1.0625rem] text-brand active:opacity-50"
   const body = (
     <>
-      <ChevronLeftIcon className="size-6 shrink-0" />
+      <ChevronLeftIcon className="size-7 shrink-0" />
       <span className="truncate">{parent.label}</span>
     </>
   )

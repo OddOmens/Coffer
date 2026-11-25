@@ -4,6 +4,8 @@ All notable changes to Coffer. Versions follow [semantic versioning](https://sem
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-25
+
 ### Added
 
 - **Encrypted buckets.** Turn on *Encrypt files* when adding an S3, R2 or Backblaze B2 drive, and Coffer encrypts every file before it leaves the server. You still see, preview and share the files on every device as usual. Each drive has a recovery key for moving to a new server, shown once when the drive is added and again on request with your password. Backups into an encrypted drive hide file names too. Encrypted drives show a lock in the sidebar, and the backup form warns when a bucket target isn't encrypted.
@@ -29,6 +31,7 @@ All notable changes to Coffer. Versions follow [semantic versioning](https://sem
 - **Backups hold back when the source shrinks.** A run that finds less than half the files or bytes of the last snapshot (or nothing at all), as with a disk that isn't mounted or a folder moved away by mistake, makes no snapshot and notifies admins. If the change is expected, **Run anyway** on the backup's card makes one.
 - **Re-uploading a folder asks first.** Dropping a folder, or files, that already exist asks once for the whole drop: replace same-named files (the old ones go to the trash), keep both by uploading into a numbered folder, or skip what's already there and upload only what's missing. Closing the tab while uploads are running asks first too.
 - **Feels like an iPhone app on phones**, in Safari and installed to the Home Screen. A tab bar along the bottom (Home, Files, Shared, Search, More), a see-through title bar with a back button, and a large title that shrinks into the bar as you scroll. Tap a file to open it, or touch and hold it (or tap ⋯) for an action sheet with **Select** to pick several. Dialogs rise from the bottom as sheets you can swipe down to close, and they stay above the keyboard. Previews fill the screen, and you swipe left or right between files. The app runs under the status bar and clear of the Home indicator, the status bar follows your theme, fields no longer zoom the page when tapped, and notifications drop in from the top.
+- **At home on iPad, and from the Home Screen.** Added to the Home Screen, Coffer opens on a launch screen in your theme's colour instead of a white flash, and the page no longer stretches past its ends behind the bars. On iPad, and on a phone held sideways, the sidebar, pages, previews, dialogs and notifications keep clear of the status bar, the Home indicator and the notch, and dialogs and the text editor stay above the on-screen keyboard. On touch screens small buttons take a finger without growing, the sidebar's rows and text fields are taller, a second tap never zooms the page, and search fields show a Search key and stop capitalising file names. A share page opened inside the installed app has a Back button, and previews there drop the *open in new tab* button, which had nowhere to open.
 - **Watermarks are described as they work.** Images are watermarked on the server; videos, PDFs, documents and text are sent as they are, with the watermark drawn over them (documents and text now get it too). The link dialog and README say so.
 - Every view uses the same page width. Folder pages show the folder name as the title with a small breadcrumb trail under it, and always show the folder's size and file count (also "0 B · 0 files"), so the header no longer jumps between folders.
 
@@ -123,5 +126,5 @@ The first public release.
 - Monitoring dashboard, Prometheus `/metrics`, audit log, and an in-app notice when a new release is out.
 - Images for x86-64 and ARM64 on GitHub Container Registry: `ghcr.io/oddomens/coffer`, `coffer-media` and `coffer-samba`.
 
-[Unreleased]: https://github.com/OddOmens/Coffer/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/OddOmens/Coffer/releases/tag/v0.3.0
+[Unreleased]: https://github.com/OddOmens/Coffer/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/OddOmens/Coffer/releases/tag/v0.4.0

@@ -59,6 +59,7 @@ import { ApiError, shareApi, type Entry, type PublicShare, type ReviewSummary, t
 import { describeEntry, encodePath, extOf, fileCount, formatBytes, formatDate, formatDay, previewKind } from "@/lib/format"
 import { enqueue, filesFromDrop, filesFromInput, useUploads, type QueueFile } from "@/lib/upload"
 import { cn } from "@/lib/utils"
+import { standalone } from "@/lib/standalone"
 
 const Office = {
   Docx: lazy(() => import("@/components/office-preview").then((m) => ({ default: m.DocxPreview }))),
@@ -102,8 +103,15 @@ function Shell({ ctx, children }: { ctx?: Ctx; children: ReactNode }) {
     await qc.invalidateQueries({ queryKey: metaKey(ctx!.token) })
   }
   return (
-    <div className="flex min-h-svh flex-col bg-canvas">
-      <header className="box-content flex h-14 items-center gap-3 border-b bg-background px-4 pt-[env(safe-area-inset-top)] md:px-8">
+    // The sides matter in Safari too: a phone held sideways draws the page beside its notch.
+    <div className="flex min-h-svh flex-col bg-canvas pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
+      <header className="-mr-[env(safe-area-inset-right)] -ml-[env(safe-area-inset-left)] box-content flex h-14 items-center gap-3 border-b bg-background pt-[env(safe-area-inset-top)] pr-[calc(1rem+env(safe-area-inset-right))] pl-[calc(1rem+env(safe-area-inset-left))] md:pr-[calc(2rem+env(safe-area-inset-right))] md:pl-[calc(2rem+env(safe-area-inset-left))]">
+        {/* A link opened inside the Home Screen app takes its place, with no browser Back to return by. */}
+        {standalone && window.history.length > 1 && (
+          <button type="button" onClick={() => window.history.back()} aria-label="Back" className="-ml-2 flex size-9 items-center justify-center rounded-lg text-brand active:opacity-50">
+            <ChevronLeftIcon className="size-6" />
+          </button>
+        )}
         <Brand small />
         <div className="flex-1" />
         {viewer && !viewer.revoked && (
@@ -120,7 +128,7 @@ function Shell({ ctx, children }: { ctx?: Ctx; children: ReactNode }) {
         )}
       </header>
       <main className="flex flex-1 flex-col">{children}</main>
-      <footer className="flex flex-col items-center gap-1 px-4 py-6 text-center text-xs text-muted-foreground">
+      <footer className="flex flex-col items-center gap-1 px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-center text-xs text-muted-foreground">
         {share?.footer && <p className="max-w-xl whitespace-pre-line">{share.footer}</p>}
         {share?.website && (
           <a href={share.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium hover:text-foreground">
@@ -659,7 +667,7 @@ function SharePreview({ ctx, entries, index, onIndexChange }: { ctx: Ctx; entrie
   }, [index, entries.length, onIndexChange])
   return (
     <Dialog open={!!entry} onOpenChange={(o) => !o && onIndexChange(null)}>
-      <DialogContent mobile="full" onOpenAutoFocus={(e) => e.preventDefault()} className="flex max-h-[96svh] w-[min(88rem,calc(100vw-1rem))] max-w-none flex-col gap-3 p-3 sm:max-w-none sm:p-4">
+      <DialogContent mobile="full" onOpenAutoFocus={(e) => e.preventDefault()} className="flex max-h-(--h) w-[min(88rem,calc(100vw-1rem))] max-w-none flex-col gap-3 p-3 [--h:min(96svh,calc(100svh-1rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] sm:max-h-(--h) sm:w-[min(88rem,calc(100vw-1rem-env(safe-area-inset-left)-env(safe-area-inset-right)))] sm:max-w-none sm:p-4">
         {entry && (
           <>
             <div className="flex items-center gap-3 pr-8">
@@ -678,7 +686,7 @@ function SharePreview({ ctx, entries, index, onIndexChange }: { ctx: Ctx; entrie
                 </Button>
               )}
             </div>
-            <div className="relative flex h-[calc(96svh-6rem)] min-h-64 flex-col overflow-hidden rounded-xl max-sm:h-auto max-sm:min-h-0 max-sm:flex-1">
+            <div className="relative flex h-[calc(var(--h)-6rem)] min-h-64 flex-col overflow-hidden rounded-xl max-sm:h-auto max-sm:min-h-0 max-sm:flex-1">
               <ReviewableFile key={entry.path} ctx={ctx} entry={entry} className="min-h-0 flex-1" />
               {index! > 0 && (
                 <Button variant="secondary" size="icon" className="absolute top-1/3 left-2 rounded-full shadow lg:top-1/2" onClick={() => onIndexChange(index! - 1)} aria-label="Previous">
@@ -1064,7 +1072,7 @@ function Lightbox({ ctx, items, index, onIndexChange }: { ctx: Ctx; items: Entry
   }
 
   return (
-    <div role="dialog" aria-modal aria-label={entry.name} className="fixed inset-0 z-50 flex flex-col bg-black/95 text-white">
+    <div role="dialog" aria-modal aria-label={entry.name} className="fixed inset-0 z-50 flex flex-col bg-black/95 pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-white">
       <div className="flex h-12 shrink-0 items-center gap-2 px-3">
         <span className="text-xs text-white/60 tabular-nums">
           {index + 1} / {items.length}

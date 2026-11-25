@@ -18,7 +18,7 @@ export function UploadPanel() {
   const failed = items.filter((i) => i.status === "error").length
 
   return (
-    <div className="fixed right-3 bottom-[calc(var(--tabbar-h)+env(safe-area-inset-bottom)+0.5rem)] left-3 z-50 overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-lg md:right-4 md:bottom-4 md:left-auto md:w-[min(24rem,calc(100vw-2rem))] md:rounded-xl">
+    <div className="fixed right-3 bottom-[calc(var(--tabbar-h)+env(safe-area-inset-bottom)+0.5rem)] left-3 z-50 overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-lg md:right-[calc(env(safe-area-inset-right)+1rem)] md:bottom-[calc(env(safe-area-inset-bottom)+1rem)] md:left-auto md:w-[min(24rem,calc(100vw-2rem))] md:rounded-xl">
       <div className="flex items-center gap-2 border-b px-3 py-2">
         <UploadIcon className="size-4 text-muted-foreground" />
         <div className="flex-1 text-sm font-medium">

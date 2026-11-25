@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { Entry } from "@/lib/api"
+import { standalone } from "@/lib/standalone"
 import { cn } from "@/lib/utils"
 import { describeEntry, extOf, formatDate, isEditable, previewKind } from "@/lib/format"
 
@@ -78,7 +79,7 @@ export function PreviewDialog({ entries, index, onIndexChange, downloadUrl, canD
 
   return (
     <Dialog open={!!entry} onOpenChange={(o) => !o && onIndexChange(null)}>
-      <DialogContent mobile="full" className="flex max-h-[96svh] w-[min(84rem,calc(100vw-1rem))] max-w-none flex-col gap-3 p-3 sm:max-w-none sm:p-4">
+      <DialogContent mobile="full" className="flex max-h-(--h) w-[min(84rem,calc(100vw-1rem))] max-w-none flex-col gap-3 p-3 [--h:min(96svh,calc(100svh-1rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] sm:max-h-(--h) sm:w-[min(84rem,calc(100vw-1rem-env(safe-area-inset-left)-env(safe-area-inset-right)))] sm:max-w-none sm:p-4">
         {entry && (
           <>
             <div className="flex items-center gap-3 pr-8">
@@ -101,7 +102,8 @@ export function PreviewDialog({ entries, index, onIndexChange, downloadUrl, canD
                   <PencilIcon /> <span className="hidden sm:inline">Edit</span>
                 </Button>
               )}
-              {canView && previewKind(entry) && !["docx", "sheet", "pptx", "google"].includes(previewKind(entry)!) && (
+              {/* Not from the Home Screen: there are no tabs there, and the bare file would replace the app with no way back. */}
+              {!standalone && canView && previewKind(entry) && !["docx", "sheet", "pptx", "google"].includes(previewKind(entry)!) && (
                 <Button variant="ghost" size="icon-sm" asChild aria-label="Open in new tab">
                   <a href={downloadUrl(entry.path, true)} target="_blank" rel="noopener noreferrer">
                     <ExternalLinkIcon />
@@ -132,7 +134,7 @@ export function PreviewDialog({ entries, index, onIndexChange, downloadUrl, canD
             ) : (
             <div
               {...swipe}
-              className="relative flex h-[calc(96svh-6rem)] min-h-64 items-center justify-center overflow-hidden rounded-xl bg-muted/50 max-sm:h-auto max-sm:min-h-0 max-sm:flex-1"
+              className="relative flex h-[calc(var(--h)-6rem)] min-h-64 items-center justify-center overflow-hidden rounded-xl bg-muted/50 max-sm:h-auto max-sm:min-h-0 max-sm:flex-1"
             >
               {canView ? (
                 <Suspense fallback={<Spinner />}>
@@ -218,7 +220,7 @@ function Reviewable({
   const [active, setActive] = useState<number | null>(null)
   const kind = mediaKindOf(entry.name)
   return (
-    <div className="grid h-[calc(96svh-6rem)] min-h-64 gap-3 max-sm:h-auto max-sm:min-h-0 max-sm:flex-1 max-lg:grid-rows-[minmax(0,1fr)_minmax(0,45%)] lg:grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="grid h-[calc(var(--h)-6rem)] min-h-64 gap-3 max-sm:h-auto max-sm:min-h-0 max-sm:flex-1 max-lg:grid-rows-[minmax(0,1fr)_minmax(0,45%)] lg:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-xl bg-muted/50">
         {kind === "video" || kind === "image" ? (
           <MediaPreview

@@ -1,6 +1,6 @@
 [package]
 name = "coffer-desktop"
-version = "0.3.0"
+version = "0.4.0"
 description = "Coffer desktop app: a native shell for a self-hosted Coffer server"
 authors = ["Odd Omens LLC <support@oddomens.com>"]
 license = "AGPL-3.0-only"

@@ -52,7 +52,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted/40 p-6">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted/40 px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
       <div className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
         <BrandMark />
         {config?.appName}
@@ -94,6 +94,8 @@ export default function LoginPage() {
                       id="username"
                       autoComplete="username"
                       autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
                       autoFocus
                       required
                       value={username}
@@ -114,7 +116,7 @@ export default function LoginPage() {
                 </>
               )}
               {error && <FieldError>{error}</FieldError>}
-              <Button type="submit" className="w-full" disabled={busy || (needCode && code.length < 6)}>
+              <Button type="submit" className="w-full pointer-coarse:h-11 pointer-coarse:text-[0.9375rem]" disabled={busy || (needCode && code.length < 6)}>
                 {busy && <Spinner />}
                 {needCode ? "Verify" : "Sign in"}
               </Button>

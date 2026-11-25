@@ -111,6 +111,10 @@ function DialogContent({
         className={cn(
           "fixed z-50 grid w-full gap-4 bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
           "sm:top-1/2 sm:left-1/2 sm:max-w-sm sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:data-open:zoom-in-95 sm:data-closed:zoom-out-95",
+          // Wider screens: centred in what's left between the status bar and the home
+          // indicator or on-screen keyboard (iPad, a phone held sideways), and scrolling
+          // inside rather than running off the screen.
+          "sm:top-[calc(50%+(env(safe-area-inset-top)-max(env(safe-area-inset-bottom),var(--kb)))/2)] sm:max-h-[min(92svh,calc(100dvh-1rem-env(safe-area-inset-top)-max(env(safe-area-inset-bottom),var(--kb))))] sm:w-[calc(100%-1rem-env(safe-area-inset-left)-env(safe-area-inset-right))] sm:overflow-y-auto sm:overscroll-contain",
           mobileStyles[mobile],
           className
         )}

@@ -126,6 +126,7 @@ Mount extra local drives into it at the same `/srv/...` paths as in the `coffer`
 | **Linux** | Nautilus or Dolphin → `davs://<host>/dav/` |
 | **rclone** | `webdav` remote, vendor `other`, URL `https://<host>/dav/` |
 | **App** | Install the PWA from the browser (address bar → Install), or the macOS / Linux desktop app from the [releases page](https://github.com/OddOmens/Coffer/releases) |
+| **iPhone, iPad** | Open Coffer in Safari over HTTPS, then **Share → Add to Home Screen** |
 
 WebDAV deletes go to Coffer's trash, and so does the old version of a file saved over (which, as in the web app, needs permission to delete there). App passwords can be revoked one at a time, are all revoked when you change your password, and never unlock the web app.
 
@@ -238,6 +239,8 @@ cd backend && go test ./...            # add COFFER_TEST_S3_* to also test again
 cd frontend && npm install && npm run dev
 cd desktop && ./scripts/build-linux.sh # desktop app, see desktop/README.md
 ```
+
+The launch screens iOS shows for the Home Screen app (`frontend/public/launch`) are drawn by `node frontend/scripts/launch-images.mjs`: run it again after changing the icon or the background colours.
 
 Pull requests run the backend tests (with the race detector and an S3 server), the frontend build, the desktop tests and a boot test of the images. See [CONTRIBUTING.md](CONTRIBUTING.md), and [RELEASING.md](RELEASING.md) for how versions are published.
 

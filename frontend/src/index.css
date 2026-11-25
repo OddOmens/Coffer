@@ -167,10 +167,43 @@
     @apply font-sans;
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
+    /* A second tap is a second tap, not a zoom, wherever it lands. Pinching still zooms. */
+    touch-action: manipulation;
     }
   a, button, [role="button"], [role="row"], label {
     touch-action: manipulation;
     }
+  /* Touch: small controls keep their look but take a finger. An unseen box
+     around each grows what a tap hits to 44px, the size iOS asks for. Here in
+     the base layer so a control's own classes (absolute, after:…) still win.
+     Buttons go by their class: one that opens a menu carries the menu
+     trigger's data-slot in place of its own. */
+  @media (pointer: coarse) {
+    :where(.group\/button, [data-slot="tabs-trigger"], [data-slot="toggle"], [data-slot="toggle-group-item"], [data-slot="radio-group-item"], [data-slot="collapsible-trigger"]) {
+      position: relative;
+      }
+    :where(.group\/button, [data-slot="tabs-trigger"], [data-slot="toggle"], [data-slot="toggle-group-item"], [data-slot="radio-group-item"], [data-slot="collapsible-trigger"])::after {
+      content: "";
+      position: absolute;
+      inset-block: min(0px, calc((100% - 2.75rem) / 2));
+      inset-inline: min(0px, calc((100% - 2.75rem) / 2));
+      }
+    }
+}
+
+/* The window behind the app: what shows before anything is drawn (index.html
+   sets the same colours for the system theme) and past the ends of a page
+   that's pulled further than it scrolls. Phones show the page surface edge to
+   edge, wider windows the canvas, as the status bar tint does (theme-color.tsx). */
+html { background: var(--background); }
+@media (min-width: 48rem) {
+  html { background: var(--canvas); }
+}
+
+/* Added to the Home Screen there's no browser around the app, so the page
+   itself shouldn't stretch past its ends behind the bars the way a web page does. */
+@media (display-mode: standalone) {
+  html { overscroll-behavior-y: none; }
 }
 
 * {
@@ -185,9 +218,21 @@
     min-height: 2.75rem;
     font-size: 0.9375rem;
   }
-  [data-mobile="true"] [data-sidebar="menu-button"], [data-mobile="true"] [data-sidebar="menu-sub-button"] {
+  /* The sidebar's rows, on a phone's sheet and docked on an iPad alike. */
+  [data-sidebar="menu-button"], [data-sidebar="menu-sub-button"], [data-sidebar="menu-trailing"] {
     height: 2.5rem;
+  }
+  [data-sidebar="menu-button"], [data-sidebar="menu-sub-button"] {
     font-size: 0.9375rem;
+  }
+  /* Fields a finger can land on. */
+  [data-slot="input"], [data-slot="input-group"], [data-slot="select-trigger"] {
+    min-height: 2.75rem;
+  }
+  /* A long press on the app's own furniture picks it up or does nothing, as in an app; it doesn't select its text. */
+  [data-slot="sidebar"], [data-sidebar="sidebar"], nav, [data-slot="tabs-list"], [data-slot="breadcrumb"] {
+    -webkit-user-select: none;
+    user-select: none;
   }
 }
 

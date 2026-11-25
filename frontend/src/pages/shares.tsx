@@ -123,7 +123,7 @@ export default function SharesPage() {
         </div>
         <div className="relative sm:ml-auto sm:w-72">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter links" className="h-10 pl-9" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter links" enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="h-10 pl-9" />
         </div>
       </div>
 

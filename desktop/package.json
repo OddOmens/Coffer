@@ -1,7 +1,7 @@
 {
   "name": "coffer-desktop",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Coffer desktop app (Tauri v2) for Linux and macOS",
   "license": "AGPL-3.0-only",
   "author": "Odd Omens LLC <support@oddomens.com>",

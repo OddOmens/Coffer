@@ -241,7 +241,7 @@ function PlaceNode({ p }: { p: Place }) {
           </Link>
         </SidebarMenuButton>
         {/* The chevron trails the name, so a place's icon lines up with every other icon. */}
-        <div inert={rail} className={cn("absolute top-0 right-1 flex h-7 items-center gap-1.5", sidebarFade)}>
+        <div inert={rail} data-sidebar="menu-trailing" className={cn("absolute top-0 right-1 flex h-7 items-center gap-1.5", sidebarFade)}>
           {p.encrypted && <LockIcon className="size-3 shrink-0 opacity-60" aria-label="Encrypted" />}
           {!p.online && <span className="size-1.5 shrink-0 rounded-full bg-amber-500" title="Offline" />}
           <Chevron open={open} hidden={!p.online} />
@@ -338,7 +338,13 @@ function AppSidebar() {
   ]
 
   return (
-    <Sidebar variant="floating" collapsible="icon">
+    // Inside the safe area: under the status bar and clear of the home indicator on iPad,
+    // beside the notch on a phone held sideways.
+    <Sidebar
+      variant="floating"
+      collapsible="icon"
+      className="top-[env(safe-area-inset-top)] bottom-[env(safe-area-inset-bottom)] h-auto data-[side=left]:left-[env(safe-area-inset-left)]"
+    >
       {/*
         The brand, with the collapse toggle pinned to the card's right edge:
         as the card narrows the toggle rides in with the edge and comes to
@@ -530,7 +536,9 @@ export function AppLayout() {
   useApplyPrefs(prefs)
   return (
     // Wider windows: a floating sidebar card, pages on the grey canvas.
-    <SidebarProvider className="md:bg-canvas">
+    <SidebarProvider className="md:bg-canvas md:pt-[env(safe-area-inset-top)] md:pr-[env(safe-area-inset-right)] md:pb-[env(safe-area-inset-bottom)] md:pl-[env(safe-area-inset-left)]">
+      {/* iPad: pages scroll under the status bar, which the phone layout's navigation bar covers. */}
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-30 hidden h-[env(safe-area-inset-top)] bg-canvas/85 backdrop-blur-xl md:block" />
       <AppSidebar />
       <SidebarInset className="min-w-0 md:bg-transparent">
         <Outlet />
