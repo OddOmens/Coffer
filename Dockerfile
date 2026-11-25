@@ -26,7 +26,7 @@ RUN CGO_ENABLED=0 go test ./... && \
 
 # 3. Media worker (optional container): the same binary plus ffmpeg and
 # ImageMagick, for video previews and HEIC/RAW stills. Build with --target media.
-FROM alpine:3.22 AS media
+FROM alpine:3.24 AS media
 RUN apk add --no-cache ffmpeg imagemagick imagemagick-heic imagemagick-raw imagemagick-jpeg \
       imagemagick-tiff imagemagick-webp tini
 # ImageMagick may only read the photo formats Coffer asks for and write JPEG:
