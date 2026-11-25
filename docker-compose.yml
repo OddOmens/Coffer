@@ -1,0 +1,173 @@
+# Coffer: file browser + share links (web) and a Samba share of the same
+# folder for After Effects / Finder / Explorer on the LAN.
+#
+#   cp .env.example .env    # then edit it
+#   cp samba/users.conf.example samba/users.conf
+#   docker compose up -d     # pulls the released images
+#
+# Update: docker compose pull && docker compose up -d
+# From source instead: docker compose up -d --build
+#
+# Ports:
+#   8080  full app (sign-in, file manager, admin). Keep it on the LAN / VPN.
+#   8081  share links only. Point your Cloudflare Tunnel or reverse proxy here.
+#   445   SMB for desktop apps (LAN only; never forward it to the internet).
+#
+# Optional:
+#   docker compose --profile tunnel up -d   adds a Cloudflare Tunnel for share links
+#   (set CLOUDFLARE_TUNNEL_TOKEN in .env; see README → Sharing publicly)
+
+name: coffer
+
+services:
+  coffer:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    build:
+      context: .
+      args:
+        VERSION: ${COFFER_VERSION:-dev}
+    image: ghcr.io/oddomens/coffer:${COFFER_VERSION:-latest}
+    restart: unless-stopped
+    # Run as the owner of your files so Coffer and Samba agree on permissions.
+    user: "${PUID:-1000}:${PGID:-1000}"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp:size=64m"]
+    # Image previews are decoded in memory; cap it so a burst of them can't
+    # take the host down.
+    mem_limit: 2g
+    environment:
+      COFFER_PUBLIC_LISTEN: ":8081"
+      COFFER_PUBLIC_URL: ${COFFER_PUBLIC_URL:-}
+      # The tunnel's fixed address (below) may report visitors' addresses on
+      # 8081. Add your own reverse proxy in .env, by its exact address.
+      COFFER_TRUSTED_PROXIES: "172.30.80.2,${COFFER_TRUSTED_PROXIES:-}"
+      COFFER_APP_TRUSTED_PROXIES: ${COFFER_APP_TRUSTED_PROXIES:-}
+      COFFER_APP_NETWORKS: ${COFFER_APP_NETWORKS:-}
+      COFFER_ADMIN_USER: ${COFFER_ADMIN_USER:-admin}
+      COFFER_ADMIN_PASSWORD: ${COFFER_ADMIN_PASSWORD:-}
+      COFFER_LOG_LEVEL: ${COFFER_LOG_LEVEL:-info}
+      COFFER_UPDATE_CHECK: ${COFFER_UPDATE_CHECK:-true}
+      COFFER_METRICS_TOKEN: ${COFFER_METRICS_TOKEN:-}
+    volumes:
+      - ${COFFER_DATA_DIR:-./data}:/data
+      - ${COFFER_FILES_DIR:?set COFFER_FILES_DIR in .env}:/srv/files
+      # More local drives: mount each folder under /srv, then add it in
+      # Admin → Drives with the path /srv/<name>. Mount the same folder into
+      # the samba service under /shares/<Name> to get it over SMB too.
+      # - /mnt/raid/archive:/srv/archive
+    ports:
+      - "${COFFER_APP_BIND:-0.0.0.0}:${COFFER_APP_PORT:-8080}:8080"
+      - "${COFFER_PUBLIC_BIND:-127.0.0.1}:${COFFER_PUBLIC_PORT:-8081}:8081"
+    networks:
+      default:
+      tunnel:
+        ipv4_address: 172.30.80.3
+
+  # Video previews (H.264 copies of ProRes/HEVC/MXF…), video thumbnails and
+  # HEIC/RAW photo previews. It only reads your files; renditions go to
+  # DATA/media. Remove this service if you don't need them.
+  media:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    build:
+      context: .
+      target: media
+      args:
+        VERSION: ${COFFER_VERSION:-dev}
+    image: ghcr.io/oddomens/coffer-media:${COFFER_VERSION:-latest}
+    restart: unless-stopped
+    depends_on: [coffer]
+    user: "${PUID:-1000}:${PGID:-1000}"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp:size=2g"]
+    environment:
+      COFFER_LOG_LEVEL: ${COFFER_LOG_LEVEL:-info}
+      COFFER_MEDIA_THREADS: ${COFFER_MEDIA_THREADS:-}
+    volumes:
+      - ${COFFER_DATA_DIR:-./data}:/data
+      - ${COFFER_FILES_DIR:?set COFFER_FILES_DIR in .env}:/srv/files:ro
+      # Mount extra local drives here too, read-only, at the same paths:
+      # - /mnt/raid/archive:/srv/archive:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "${COFFER_MEDIA_CPUS:-4}"
+          memory: 4g
+          # ffmpeg and ImageMagick parse untrusted files: cap processes too.
+          pids: 512
+
+  # Public share links over a Cloudflare Tunnel: no open ports, HTTPS on your
+  # domain. In the Cloudflare dashboard (Zero Trust → Networks → Tunnels),
+  # create a tunnel, copy its token into CLOUDFLARE_TUNNEL_TOKEN, and add a
+  # public hostname pointing to http://coffer:8081. It runs on its own small
+  # network with a fixed address, the only one Coffer trusts by default to
+  # say who a visitor is.
+  tunnel:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    image: cloudflare/cloudflared:2026.10.4
+    profiles: [tunnel]
+    restart: unless-stopped
+    depends_on: [coffer]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks:
+      tunnel:
+        ipv4_address: 172.30.80.2
+
+  samba:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    build: ./samba
+    image: ghcr.io/oddomens/coffer-samba:${COFFER_VERSION:-latest}
+    restart: unless-stopped
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, FSETID, SETUID, SETGID, NET_BIND_SERVICE, KILL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      SMB_SHARE_NAME: ${SMB_SHARE_NAME:-Files}
+      SMB_ENCRYPT: ${SMB_ENCRYPT:-if_required}
+      # Networks allowed to connect (space-separated); empty = private ranges.
+      SMB_HOSTS_ALLOW: ${SMB_HOSTS_ALLOW:-}
+    volumes:
+      - ${COFFER_FILES_DIR:?set COFFER_FILES_DIR in .env}:/share
+      - ./samba/users.conf:/etc/coffer/users.conf:ro
+      # Lets Coffer show which files are open over SMB.
+      - ${COFFER_DATA_DIR:-./data}/smb:/status
+      # - /mnt/raid/archive:/shares/Archive
+    ports:
+      - "${SMB_BIND:-0.0.0.0}:${SMB_PORT:-445}:445"
+
+networks:
+  # Coffer (.3) and the tunnel (.2). .4-.6 are free for a proxy in front of
+  # the full app, such as a Tailscale container: join it to this network at a
+  # fixed address and set COFFER_APP_TRUSTED_PROXIES to that address. If
+  # 172.30.80.0/29 clashes with a network you use, change it here and the
+  # addresses above to match.
+  tunnel:
+    ipam:
+      config:
+        - subnet: 172.30.80.0/29

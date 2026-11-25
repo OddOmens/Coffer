@@ -1,0 +1,54 @@
+[global]
+   server role = standalone server
+   server string = Coffer
+   workgroup = WORKGROUP
+   netbios name = COFFER
+
+   # Security: SMB3 only, NTLMv2 only, no guests, no anonymous browsing.
+   server min protocol = SMB3_00
+   client min protocol = SMB3_00
+   ntlm auth = ntlmv2-only
+   restrict anonymous = 2
+   map to guest = never
+   guest ok = no
+   invalid users = root
+   # Signed SMB3 is cheap (AES-GMAC) and stops tampering on the LAN; macOS
+   # signs by default anyway.
+   server signing = mandatory
+   server smb encrypt = ${SMB_ENCRYPT}
+   # Only local networks by default (SMB_HOSTS_ALLOW), in case 445 is ever
+   # reachable from further away.
+   hosts allow = ${SMB_HOSTS_ALLOW}
+   hosts deny = ALL
+   # Symlinks may not lead outside a share.
+   wide links = no
+   allow insecure wide links = no
+   disable netbios = yes
+   smb ports = 445
+   load printers = no
+   printing = bsd
+   printcap name = /dev/null
+   disable spoolss = yes
+
+   # macOS: keep Finder tags, resource forks and AE metadata in xattrs, and
+   # enable Apple's SMB extensions (faster directory listing, POSIX rename).
+   vfs objects = catia fruit streams_xattr recycle
+   fruit:metadata = stream
+   fruit:model = MacSamba
+   fruit:posix_rename = yes
+   fruit:veto_appledouble = no
+   fruit:nfs_aces = no
+   fruit:wipe_intentionally_left_blank_rfork = yes
+   fruit:delete_empty_adfiles = yes
+   ea support = yes
+
+   # Speed for large media files.
+   use sendfile = yes
+   aio read size = 1
+   aio write size = 1
+   server multi channel support = yes
+
+   log file = /dev/stdout
+   log level = 1
+   max log size = 0
+

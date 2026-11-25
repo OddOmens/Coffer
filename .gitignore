@@ -1,0 +1,12 @@
+node_modules/
+frontend/dist/
+backend/internal/webui/dist/*
+!backend/internal/webui/dist/.keep
+# Local data and files when running from the repo (anchored: backend/internal/files is source).
+/data/
+/files/
+.env*
+!.env.example
+samba/users.conf
+*.log
+.DS_Store

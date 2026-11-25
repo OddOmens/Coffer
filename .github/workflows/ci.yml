@@ -1,0 +1,195 @@
+# Runs on every pull request and every push to main. The four job names are
+# required checks in the "Protect main" ruleset: renaming one means updating
+# the ruleset too.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27"
+          cache-dependency-path: backend/go.sum
+
+      # A throwaway S3 server so the S3/R2 drive tests run instead of skipping.
+      - name: Start S3 test server
+        run: |
+          cat > "$RUNNER_TEMP/s3.json" <<'EOF'
+          {"identities":[{"name":"ci","credentials":[{"accessKey":"coffer-ci","secretKey":"coffer-ci-secret"}],"actions":["Admin","Read","Write","List","Tagging"]}]}
+          EOF
+          docker run -d --name s3 -p 8333:8333 -v "$RUNNER_TEMP/s3.json:/etc/s3.json:ro" \
+            chrislusf/seaweedfs:4.48 server -s3 -s3.config=/etc/s3.json -dir=/tmp
+          for _ in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ || true)
+            [ "$code" != "000" ] && echo "S3 up ($code)" && exit 0
+            sleep 2
+          done
+          docker logs s3
+          exit 1
+
+      - name: Vet
+        working-directory: backend
+        run: go vet ./...
+
+      - name: Test (race detector)
+        working-directory: backend
+        env:
+          CGO_ENABLED: "1"
+          COFFER_TEST_S3_ENDPOINT: 127.0.0.1:8333
+          COFFER_TEST_S3_BUCKET: coffer-ci
+          COFFER_TEST_S3_KEY: coffer-ci
+          COFFER_TEST_S3_SECRET: coffer-ci-secret
+        run: go test -race -count=1 ./...
+
+      # Only fails on vulnerabilities in code Coffer actually calls.
+      - name: Known vulnerabilities (govulncheck)
+        working-directory: backend
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Type-check and build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Known vulnerabilities (npm audit)
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+
+  desktop:
+    name: Desktop tests
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev build-essential
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-10-16
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: ci
+
+      - name: Build web view and run tests
+        working-directory: desktop
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build:web
+          cargo test --manifest-path src-tauri/Cargo.toml --locked
+
+  image:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build images
+        run: |
+          docker build --build-arg VERSION=ci -t coffer:ci .
+          docker build --build-arg VERSION=ci --target media -t coffer-media:ci .
+          docker build -t coffer-samba:ci samba
+
+      # Boot it the way the compose file does (read-only, no capabilities,
+      # non-root) and check both listeners do what they should.
+      - name: Start and check both listeners
+        run: |
+          mkdir -p "$RUNNER_TEMP/data" "$RUNNER_TEMP/files"
+          chmod 0777 "$RUNNER_TEMP/data" "$RUNNER_TEMP/files"
+          docker run -d --name coffer --user "$(id -u):$(id -g)" --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+            --tmpfs /tmp:size=64m -e COFFER_PUBLIC_LISTEN=:8081 \
+            -p 8080:8080 -p 8081:8081 \
+            -v "$RUNNER_TEMP/data:/data" -v "$RUNNER_TEMP/files:/srv/files" coffer:ci
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/api/health; then
+              echo
+              curl -fsS http://127.0.0.1:8080/ | grep -q '<div id="root">' || { echo "web app not served"; exit 1; }
+              # The public listener has share routes only: no sign-in, no WebDAV.
+              code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:8081/api/auth/login)
+              [ "$code" = "404" ] || { echo "sign-in reachable on the share listener ($code)"; exit 1; }
+              code=$(curl -s -o /dev/null -w '%{http_code}' -X PROPFIND -H 'Depth: 0' http://127.0.0.1:8081/dav/)
+              [ "$code" = "405" ] || { echo "WebDAV reachable on the share listener ($code)"; exit 1; }
+              code=$(curl -s -o /dev/null -w '%{http_code}' -X PROPFIND -H 'Depth: 0' http://127.0.0.1:8080/dav/)
+              [ "$code" = "401" ] || { echo "WebDAV on the app listener should ask for a password ($code)"; exit 1; }
+              echo "listeners OK"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs coffer
+          exit 1
+
+      - name: Media worker starts
+        run: |
+          docker run -d --name media --user "$(id -u):$(id -g)" --read-only --cap-drop ALL --tmpfs /tmp \
+            -v "$RUNNER_TEMP/data:/data" -v "$RUNNER_TEMP/files:/srv/files:ro" coffer-media:ci
+          sleep 5
+          [ "$(docker inspect -f '{{.State.Running}}' media)" = "true" ] || { docker logs media; exit 1; }
+          docker exec media ffmpeg -hide_banner -version | head -1
+          docker exec media magick -version | head -1
+
+      - name: Stops cleanly on SIGTERM
+        run: |
+          start=$(date +%s)
+          docker stop -t 30 coffer media
+          took=$(( $(date +%s) - start ))
+          echo "stopped in ${took}s"
+          [ "$took" -lt 15 ]

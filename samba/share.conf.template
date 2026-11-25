@@ -1,0 +1,19 @@
+[${SHARE}]
+   path = ${PATH_}
+   valid users = @coffer
+   read only = no
+   browseable = yes
+   force user = coffer
+   force group = coffer
+   create mask = 0664
+   directory mask = 0775
+   # Coffer's upload staging and trash live here; never expose it.
+   veto files = /.coffer/
+   delete veto files = no
+   # Deleted files are kept per user, like a recycle bin, under .coffer/smb-recycle.
+   recycle:repository = .coffer/smb-recycle/%U
+   recycle:keeptree = yes
+   recycle:versions = yes
+   recycle:touch = yes
+   recycle:directory_mode = 0770
+   recycle:exclude = *.tmp,~$*,.DS_Store,._*

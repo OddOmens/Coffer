@@ -1,0 +1,12 @@
+.git
+**/node_modules
+frontend/dist
+data
+files
+samba/users.conf
+.env*
+!.env.example
+*.md
+!frontend/**/*.md
+desktop
+.github

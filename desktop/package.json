@@ -1,0 +1,22 @@
+{
+  "name": "coffer-desktop",
+  "private": true,
+  "version": "0.3.0",
+  "description": "Coffer desktop app (Tauri v2) for Linux and macOS",
+  "license": "AGPL-3.0-only",
+  "author": "Odd Omens LLC <support@oddomens.com>",
+  "type": "module",
+  "scripts": {
+    "build:web": "tsc --noEmit && vite build",
+    "tauri": "tauri",
+    "icons": "tauri icon app-icon.svg"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.12.4"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.4",
+    "typescript": "5.9.3",
+    "vite": "7.3.7"
+  }
+}

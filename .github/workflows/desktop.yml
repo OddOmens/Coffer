@@ -1,0 +1,166 @@
+# Builds the Coffer desktop app (desktop/).
+#   Linux: .deb + AppImage (ubuntu-22.04, so the AppImage runs on older glibc)
+#   macOS: universal (Apple silicon + Intel) .dmg
+# Release.yml calls this for every version tag and the apps are attached to
+# that release. Run it by hand to just build them (they're kept as workflow
+# artifacts), or give it an existing tag to attach them to that release.
+#
+# macOS signing/notarization is optional. Without these secrets the app is
+# ad-hoc signed and users must allow it on first launch (see desktop/README.md):
+#   APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
+#   and for notarization either APPLE_ID + APPLE_PASSWORD + APPLE_TEAM_ID
+#   or APPLE_API_ISSUER + APPLE_API_KEY + APPLE_API_KEY_P8 (contents of the .p8 key).
+name: Desktop
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to attach the apps to
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach the apps to (empty: build only)"
+        type: string
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            os: ubuntu-22.04
+            rust-targets: ""
+            args: --bundles deb,appimage
+          - name: macos
+            os: macos-latest
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+            args: --target universal-apple-darwin --bundles app,dmg
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev \
+            libssl-dev build-essential curl wget file xdg-utils
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-10-16
+        with:
+          toolchain: stable
+          targets: ${{ matrix.rust-targets }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: ${{ matrix.name }}
+
+      - name: Install npm dependencies
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+
+      - name: Run tests
+        working-directory: desktop
+        run: |
+          npm run build:web
+          cargo test --manifest-path src-tauri/Cargo.toml --locked
+
+      # Only export the Apple variables that are actually set: an empty
+      # APPLE_CERTIFICATE would make the bundler try (and fail) to import it.
+      - name: Configure macOS signing (optional)
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          export_var() {
+            local name="$1" value="$2" delim
+            delim="EOF_$(openssl rand -hex 8)"
+            { echo "${name}<<${delim}"; printf '%s\n' "$value"; echo "$delim"; } >> "$GITHUB_ENV"
+          }
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY \
+                      APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID APPLE_API_ISSUER APPLE_API_KEY; do
+            if [ -n "${!name:-}" ]; then
+              export_var "$name" "${!name}"
+              echo "$name is set"
+            fi
+          done
+          if [ -n "${APPLE_API_KEY_P8:-}" ]; then
+            key_path="$RUNNER_TEMP/apple-api-key.p8"
+            printf '%s\n' "$APPLE_API_KEY_P8" > "$key_path"
+            export_var APPLE_API_KEY_PATH "$key_path"
+            echo "APPLE_API_KEY_PATH is set"
+          fi
+          if [ -z "${APPLE_CERTIFICATE:-}" ]; then
+            echo "No signing certificate: building an ad-hoc signed, un-notarized app."
+          fi
+
+      # Attach by release id: given a tag, tauri-action rewrites the release's
+      # name and notes, which come from CHANGELOG.md.
+      - name: Find the release
+        id: release
+        if: inputs.tag != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: echo "id=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json databaseId --jq .databaseId)" >> "$GITHUB_OUTPUT"
+
+      - name: Build (and attach to the release)
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        with:
+          projectPath: desktop
+          tauriScript: npx tauri
+          args: ${{ matrix.args }}
+          # Empty when run by hand without a tag: build only.
+          releaseId: ${{ steps.release.outputs.id }}
+
+      - name: Keep the apps as workflow artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coffer-desktop-${{ matrix.name }}
+          path: |
+            desktop/src-tauri/target/**/release/bundle/deb/*.deb
+            desktop/src-tauri/target/**/release/bundle/appimage/*.AppImage
+            desktop/src-tauri/target/**/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 14

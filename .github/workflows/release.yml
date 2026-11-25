@@ -1,0 +1,165 @@
+# Pushing a version tag (v0.3.0, v0.4.0, v1.0.0-beta.1 …) publishes that version:
+#   1. checks the tag matches every version file and has a CHANGELOG section
+#   2. builds the three images for x86-64 and ARM64 and pushes them to GitHub
+#      Container Registry as :0.4.0, :0.4 and :latest (pre-releases only get
+#      their exact tag). The image build runs the Go tests.
+#   3. creates the GitHub release with that version's CHANGELOG section as the
+#      notes, which is also what running servers show admins as an update
+#   4. builds the desktop apps (desktop.yml) and attaches them to the release
+# See RELEASING.md for the whole routine.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the tag matches the code
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          fail=0
+          for f in frontend/package.json desktop/package.json desktop/src-tauri/tauri.conf.json; do
+            got=$(jq -r .version "$f")
+            [ "$got" = "$VERSION" ] || { echo "::error file=$f::version is $got but the tag is $GITHUB_REF_NAME (run scripts/release-version.sh $VERSION)"; fail=1; }
+          done
+          got=$(sed -n 's/^version = "\(.*\)"/\1/p' desktop/src-tauri/Cargo.toml | head -1)
+          [ "$got" = "$VERSION" ] || { echo "::error file=desktop/src-tauri/Cargo.toml::version is $got but the tag is $GITHUB_REF_NAME"; fail=1; }
+          grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "::error file=CHANGELOG.md::no '## [$VERSION]' section; the release notes come from there"; fail=1; }
+          [ "$fail" = 0 ] || exit 1
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          case "$VERSION" in *-*) echo "prerelease=true" ;; *) echo "prerelease=false" ;; esac >> "$GITHUB_OUTPUT"
+
+  image:
+    name: Publish ${{ matrix.name }} image
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: coffer
+            context: .
+            target: ""
+          - name: coffer-media
+            context: .
+            target: media
+          - name: coffer-samba
+            context: samba
+            target: ""
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/oddomens/${{ matrix.name }}
+          # {{major}}.{{minor}} is skipped automatically for pre-releases. No
+          # bare {{major}} tag while the major version is 0.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          flavor: |
+            latest=${{ needs.verify.outputs.prerelease == 'false' }}
+          labels: |
+            org.opencontainers.image.title=${{ matrix.name }}
+            org.opencontainers.image.licenses=AGPL-3.0-only
+            org.opencontainers.image.vendor=Odd Omens LLC
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          target: ${{ matrix.target }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: VERSION=${{ needs.verify.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  release:
+    name: GitHub release
+    needs: [verify, image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Release notes from CHANGELOG
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          # Everything under "## [VERSION]" up to the next heading or the link list.
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && (/^## \[/ || /^\[[^]]+\]: /) { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          cat >> notes.md <<EOF
+
+          ---
+          **New install:** clone the repo at \`$GITHUB_REF_NAME\`, then follow [Quick start](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/README.md#quick-start).
+          **Update:** set \`COFFER_VERSION=$VERSION\` in \`.env\` (or leave it on \`latest\`), then \`docker compose pull && docker compose up -d\`. Database changes apply automatically on start.
+          **Images** (x86-64 and ARM64): \`ghcr.io/oddomens/coffer:$VERSION\`, \`ghcr.io/oddomens/coffer-media:$VERSION\`, \`ghcr.io/oddomens/coffer-samba:$VERSION\`
+          **Desktop apps:** attached below once their build finishes (\`.dmg\` for macOS, \`.deb\` and \`.AppImage\` for Linux).
+          EOF
+          cat notes.md
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}
+        run: |
+          flags=""
+          [ "$PRERELEASE" = "true" ] && flags="--prerelease"
+          gh release create "$GITHUB_REF_NAME" --title "Coffer $GITHUB_REF_NAME" --notes-file notes.md --verify-tag $flags
+
+  desktop:
+    name: Desktop apps
+    needs: release
+    permissions:
+      contents: write
+    uses: ./.github/workflows/desktop.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit

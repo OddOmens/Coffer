@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Coffer",
+  "version": "0.3.0",
+  "identifier": "com.oddomens.coffer",
+  "build": {
+    "beforeDevCommand": "npm run build:web",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "withGlobalTauri": false,
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost",
+      "capabilities": [
+        "connect-page"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "deb",
+      "appimage",
+      "app",
+      "dmg"
+    ],
+    "publisher": "Odd Omens LLC",
+    "copyright": "Copyright © 2026 Odd Omens LLC",
+    "license": "AGPL-3.0-only",
+    "category": "Productivity",
+    "shortDescription": "Desktop app for Coffer, the self-hosted file browser",
+    "longDescription": "Coffer is a self-hosted file browser. This app connects to your Coffer server and runs it in its own window, with native menus, downloads and notifications.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "linux": {
+      "deb": {
+        "section": "net"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "signingIdentity": "-"
+    }
+  }
+}
